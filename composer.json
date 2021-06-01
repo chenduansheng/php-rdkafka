@@ -15,7 +15,7 @@
     },
     "autoload":{
         "psr-4":{
-            "Common\\MQ\\Rdkafka\\":"src/Rdkafka"
+            "Common\\MQ\\Kafka\\": "src/Common/MQ/Kafka"
         }
     }
 }
