@@ -1,0 +1,21 @@
+{
+    "name": "chenduansheng/php-rdkafka",
+    "description": "666666",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "chenduansheng",
+            "email": "476210724@qq.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "php":">=5.6"
+    },
+    "autoload":{
+        "psr-4":{
+            "Rdkafka\\Library\\":"src/Rdkafka/Library"
+        }
+    }
+}
