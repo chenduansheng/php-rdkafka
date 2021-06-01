@@ -1,6 +1,6 @@
 <?php
 
-require_once '../KafkaProducer.php';
+require_once '../src/Common/MQ/Kafka/KafkaProducer.php';
 
 $config = [
     'brokerList'=>'192.168.59.100:9093, 192.168.59.100:9094, 92.168.59.100:9095',

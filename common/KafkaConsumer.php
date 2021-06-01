@@ -1,7 +1,6 @@
 <?php
 
-namespace Common\MQ\Kafka;
-
+namespace Stary\Common\MQ\Kafka;
 use Exception;
 use RdKafka\KafkaConsumer as RkConsumer;
 use RdKafka\Message;
@@ -39,7 +38,7 @@ class KafkaConsumer
         'brokerList'=>'127.0.0.1:9092', //连接kafka的broker
         'groupId'=>'', //设置分组id
         'clientId'=>'', //设置客户端
-        'rebalanceLogPath'=>'/var/log/KafkaRebalanceLog'
+        'rebalanceLogPath'=>'/var/log/KafkaRebalanceLog' //记录消费者重平衡的日志路径
     ];
 
     /**

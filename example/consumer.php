@@ -1,13 +1,13 @@
 <?php
 
-require_once '../KafkaConsumer.php';
+require_once '../src/Common/MQ/Kafka/KafkaConsumer.php';
 
 
 $config = [
     'brokerList'=>'192.168.59.100:9093, 192.168.59.100:9094, 192.168.59.100:9095',
     'groupId'=>'group_1',
     'clientId'=>'',
-    'rebalanceLogPath'=>'d:/44444'
+    'rebalanceLogPath'=>'d:/rebalanceLog'
 ];
 $consumer = ( \Common\MQ\Kafka\KafkaConsumer::instance('test', $config) );
 
