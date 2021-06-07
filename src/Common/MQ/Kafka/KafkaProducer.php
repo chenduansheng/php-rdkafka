@@ -1,6 +1,7 @@
 <?php
-namespace Common\MQ\Kafka;
+namespace Stary\Common\MQ\Kafka;
 
+use Exception;
 use RdKafka\Producer;
 use RdKafka\ProducerTopic;
 
@@ -11,16 +12,17 @@ use RdKafka\ProducerTopic;
 class KafkaProducer
 {
     /**
-     * 应用传进来的配置
-     * @var array
+     * 默认配置项，应用传值过来了就会用传过来的，其中brokerList为必传项
+     * @var string
      */
     private $config = [
-        'brokerList'=>'127.0.0.1:9092',         //kafka地址和端口
+        'brokerList'=>'',                       //kafka地址和端口 - 【只有此项是必传】
         'clientId'=>'',                         //客户端分配id
         'drCbLogPath'=>'/var/log/kafka_dr_cb',  //回调函数保存回调日志的日志文件地址
         'errCbLogPath'=>'/var/log/kafka_err_cb',//回调函数保存错误日志的日志文件地址
         'ack'=>0                                //是否需要给回调函数返回offset
     ];
+
     /**
      * 生产者配置
      * @var object
@@ -46,6 +48,7 @@ class KafkaProducer
     public $topic;
 
     /**
+     * 单例方法，生成基于主题的单例生产者
      * @param string $topic
      * @param array $config
      * @return KafkaProducer
@@ -60,6 +63,7 @@ class KafkaProducer
     }
 
     /**
+     * 会生成相关生产者实例
      * @param string $topic
      * @param array $config
      * @return void
@@ -70,37 +74,73 @@ class KafkaProducer
 
         $this->producerConfig = new \RdKafka\Conf();
 
-        if(isset($this->config['drCbLogPath'])) {
+        // 所有推送的回调地址
+        if (isset($this->config['callback'])) {
+            $this->producerConfig->setDrmSgCb($this->config['callback']);
+        } elseif (isset($this->config['drCbLogPath'])) {
             $this->producerConfig->setDrmSgCb(function ($kafka, $message) {
+                //回调日志
                 $this->log(json_encode($message, true), $this->config['drCbLogPath']);
             });
         }
-        if(isset($this->config['errCbLogPath'])) {
+
+        // 所有错误推送的回调日志地址，该日志可追踪错误的推送
+        if (isset($this->config['errCbLogPath'])) {
             $this->producerConfig->setErrorCb(function ($kafka, $err, $reason) {
-                $this->log(sprintf("Kafka error: %s (reason: %s)", rd_kafka_err2str($err), $reason), $this->config['errCbLogPath']);
+                $content = sprintf("Kafka error: %s (reason: %s)", rd_kafka_err2str($err), $reason);
+                $this->log($content, $this->config['errCbLogPath']);
             });
         }
-        if(!empty($this->config['clientId'])) {
+
+        // 设置客户端id,该项可忽略
+        if (!empty($this->config['clientId'])) {
             $this->producerConfig->set('client.id', $this->config['clientId']);
         }
-        $this->producer = new Producer($this->producerConfig);
-        $this->producer->addBrokers($this->config['brokerList']);
 
+        if (!empty($config['brokerList'])) {
+            // 生成生产者实例
+            $this->producer = new Producer($this->producerConfig);
+            // 设置kafka服务器的ip和端口
+            $this->producer->addBrokers($this->config['brokerList']);
+        } else {
+            throw new \Exception('brokerList参数(kafka的ip和端口)没有配置');
+        }
+
+        // 是否接收offset位置, （属于消息推送可靠性设置）
         $cf = new \RdKafka\TopicConf();
-        if(isset($this->config['ack'])){
+        if (isset($this->config['ack'])) {
             $cf->set('request.required.acks', $this->config['ack']);
         }
+        // 设置超时时间为3秒
+        $cf->set("message.timeout.ms", 3000);
+
+        // 生成kafka主题生产实例
         $this->topic = $this->producer->newTopic($topic, $cf);
     }
 
     /**
-     * @param string $message
+     * 发送消息（基于主题的消息推送）
+     * @param mixed $message
      * @return void
      */
-    public function send($message)
+    public function produce($message)
     {
+        if (!$message) {
+            throw new \Exception('$message：内容不能为空');
+        }
+        if (is_array($message)) {
+            $message = json_encode($message, true);
+        }
+        if (!is_string($message)) {
+            throw new \Exception('$message：参数格式错误');
+        }
+
+        // 开始推送消息
         $this->topic->produce(RD_KAFKA_PARTITION_UA, 0, $message, rand(0, 1000));
+        // 非阻塞调用
         $this->producer->poll(0);
+
+        return true;
     }
 
     /**
@@ -108,19 +148,22 @@ class KafkaProducer
      */
     public function __destruct()
     {
-        $this->producer->flush(10000);
+        // 实例退出3秒后，默认执行一次刷盘
+        $this->producer->flush(3000);
     }
 
     /**
+     * 保存相关日志
      * @param string $message 日志内容
      * @param string $path    日志路径
      * @return void
      */
-    private function log($message, $path){
+    private function log($message, $path)
+    {
         $dateTime = date('Y-m-d H:i:s');
 
-        $date = date('Y-m-d', time());
-        $path = $path.'.'.$date.'.log';
+        $date = date('Ymd', time());
+        $path = $path.'.'.$date.'.producer.kafka.log';
 
         error_log("[$dateTime] $message".PHP_EOL, 3, $path);
     }
