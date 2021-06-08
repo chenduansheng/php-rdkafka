@@ -37,7 +37,7 @@ class KafkaConsumer
      */
     private $config = [
         'brokerList'=>'',                                   //连接kafka的broker - 【只有此项是必传】
-        'groupId'=>'',                                      //设置分组id
+        'groupId'=>'default',                               //设置分组id
         'clientId'=>'',                                     //设置客户端id
         'rebalanceLogPath'=>'/var/log/KafkaRebalanceLog',   //记录消费者重平衡的日志路径
         'defaultLogPath'=>'/var/log/access',                //默认日志路径
