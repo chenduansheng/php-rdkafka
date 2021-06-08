@@ -235,7 +235,7 @@ class KafkaConsumer
         //重试(RETRY_TIMES_AFTER_FAIL)次， 直到成功
         while ($isSuccess == false && $reTryTimes < self::RETRY_TIMES_AFTER_FAIL) {
             try {
-                $isSuccess = call_user_func_array($callback, [json_decode($message->payload)]);
+                $isSuccess = call_user_func_array($callback, [json_decode($message->payload, true)]);
             } catch (\Exception $e) {
                 $isSuccess = false;
             }

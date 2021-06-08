@@ -1,5 +1,5 @@
 <?php
-namespace Stary\Common\MQ\Facade;
+namespace Stary\Common;
 
 use Stary\Common\MQ\Kafka\KafkaProducer;
 use Stary\Common\MQ\Kafka\KafkaConsumer;
