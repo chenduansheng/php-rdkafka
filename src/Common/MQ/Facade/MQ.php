@@ -26,6 +26,31 @@ class MQ
      * @return boolean
      * @throws \Exception
      */
+    public static function instance($topic, $message, $config)
+    {
+
+        $config = array_merge(self::$config, $config);
+
+        switch ($config['type']) {
+            /* self::$config 中设置了默认走kafka */
+            case 'kafka':
+                return ( KafkaProducer::instance($topic, $config) )->produce($message);
+                break;
+            default:
+                break;
+        }
+
+        return false;
+    }
+
+    /**
+     * 消息生产门面
+     * @param string $topic 主题
+     * @param string $message 消息内容
+     * @param array $config 配置
+     * @return boolean
+     * @throws \Exception
+     */
     public static function produce($topic, $message, $config)
     {
 

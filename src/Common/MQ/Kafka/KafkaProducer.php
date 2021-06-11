@@ -20,6 +20,7 @@ class KafkaProducer
         'clientId'=>'',                         //客户端分配id
         'drCbLogPath'=>'/var/log/kafka_dr_cb',  //回调函数保存回调日志的日志文件地址
         'errCbLogPath'=>'/var/log/kafka_err_cb',//回调函数保存错误日志的日志文件地址
+        'defaultLogPath'=>'/var/log/default',   //默认日志路径
         'ack'=>0                                //是否需要给回调函数返回offset
     ];
 
@@ -160,10 +161,13 @@ class KafkaProducer
      */
     private function log($message, $path)
     {
+        if (!$path) {
+            $path = $this->config['defaultLogPath'];
+        }
         $dateTime = date('Y-m-d H:i:s');
 
         $date = date('Ymd', time());
-        $path = $path.'.'.$date.'.producer.kafka.log';
+        $path = $path.'.'.$this->topic.'.producer.kafka.log'.$date;
 
         error_log("[$dateTime] $message".PHP_EOL, 3, $path);
     }

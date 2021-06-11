@@ -6,6 +6,7 @@ use RdKafka\KafkaConsumer as RkConsumer;
 use Stary\Common\MQ\Kafka\KafkaProducer;
 use RdKafka\Message;
 use RdKafka\Conf;
+use DingTalkApi;
 
 /**
  * @description kafka消息消费者类包, 使用前需安装rdkafka拓展
@@ -40,8 +41,9 @@ class KafkaConsumer
         'groupId'=>'default',                               //设置分组id
         'clientId'=>'',                                     //设置客户端id
         'rebalanceLogPath'=>'/var/log/KafkaRebalanceLog',   //记录消费者重平衡的日志路径
-        'defaultLogPath'=>'/var/log/access',                //默认日志路径
+        'defaultLogPath'=>'/var/log/default',               //默认日志路径
         'errorLogPath'=>'var/log/error',                    //默认错误日志路径
+        'stopConsumWhileFail'=>false,                       //出现消费失败情况是否立马停止消费
         'maxConsumNum'=>0,                                  //最大消费条数（设置为0就是不限制）
         'expireTime'=>0,                                    //消费者生存时间（设置为0就是不限制）
     ];
@@ -124,7 +126,11 @@ class KafkaConsumer
         // offset store or the desired offset is out of range.
         // 'smallest': start from the beginning
         // 初始偏移位置
-        $conf->set('auto.offset.reset', 'smallest');
+        if (!empty($this->config['autoOffsetReset'])) {
+            $conf->set('auto.offset.reset', $this->config['autoOffsetReset']);
+        }else{
+            $conf->set('auto.offset.reset', 'smallest');
+        }
 
         $consumer = new \RdKafka\KafkaConsumer($conf);
 
@@ -143,10 +149,6 @@ class KafkaConsumer
     {
         $this->callback = $callback;
         return $this;
-    }
-
-    private function commit()
-    {
     }
 
     /**
@@ -169,11 +171,27 @@ class KafkaConsumer
         try {
             $isSuccess = $this->doCallBack($callback, $message);
         } catch (Exception $e) {
-            $this->log("[执行callpack时失败：分区id-$message->partition-偏移量-$message->offset]".PHP_EOL);
+            $this->log(
+                "[执行callback时失败：分区id-$message->partition-偏移量-$message->offset]".PHP_EOL,
+                $this->config['errorLogPath']
+            );
         }
 
         // 消息使用完毕后，需要return ture，否则这里会人为消费失败
         if ($isSuccess !== true) {
+            //如果设置了碰到错误不提交offset并立马停止消费者
+            if ($this->config['stopConsumWhileFail'] == true) {
+                $this->stop();
+                $this->consumer->close();
+                DingTalkApi::sendRobotMessage(
+                    "【必须处理】消息队列-kafka-消费失败-已关闭消费者：". PHP_EOL .
+                    "kafka队列名称: ". $this->topic . PHP_EOL .
+                    'server name: ' . gethostname() . PHP_EOL .
+                    'tips: please check the error logs ' . PHP_EOL .
+                    'path: ' . $this->config['errorLogPath']
+                );
+                return false;
+            }
             $this->log(self::ERROR_NO_CALL_BACK_FAIL."消费失败 $executeInfo", $this->config['errorLogPath']);
             $result = $this->onFailure($callback, $content);
             if ($result === false) {
@@ -184,7 +202,7 @@ class KafkaConsumer
         $costTime = round(microtime(true) * 1000 - $startTime, 3);
         $executeInfo .= " cost=$costTime";
 
-        $this->log($executeInfo);
+        $this->log($executeInfo, $this->config['defaultLogPath']);
         try {
             $this->consumer->commitAsync($message); // 异步手动提交offset(不会阻塞poll)
             $this->log("[正常提交offset：分区id-$message->partition-偏移量-$message->offset]".PHP_EOL);
@@ -237,6 +255,7 @@ class KafkaConsumer
             try {
                 $isSuccess = call_user_func_array($callback, [json_decode($message->payload, true)]);
             } catch (\Exception $e) {
+                $this->log("第".$reTryTimes."次失败".$e->getmessage(), $this->config['errorLogPath']);
                 $isSuccess = false;
             }
             $reTryTimes++;
@@ -279,8 +298,9 @@ class KafkaConsumer
                     // 错误超过10条则发送消息给钉钉
                     if ($errNum >= self::ERROR_THRESHOLD_TO_ALARM) {
                         DingTalkApi::sendRobotMessage(
-                            "kafka: ". $this->topic . PHP_EOL .
-                            "msg: report failure $errNum/min >= " . self::ERROR_THRESHOLD_TO_ALARM . PHP_EOL .
+                            "消息队列-kafka-消费-告警：". PHP_EOL .
+                            "kafka队列名称: ". $this->topic . PHP_EOL .
+                            "msg: report failure $errNum >= " . self::ERROR_THRESHOLD_TO_ALARM . PHP_EOL .
                             'server name: ' . gethostname() . PHP_EOL .
                             'tips: please check the error logs ' . PHP_EOL .
                             'path: ' . $this->config['errorLogPath']
@@ -313,15 +333,15 @@ class KafkaConsumer
                     break;
                 default:
                     //一般是kafka长时间死掉了没复活，需要人为排查和干预
-                    $this->log("消费异常 exception={$e->getMessage()}", $this->config['errorLogPath']);
+                    $this->log("消费异常 rd拓展exception={$message->errstr()}", $this->config['errorLogPath']);
                     DingTalkApi::sendRobotMessage(
+                        "kafka消费者异常，rd拓展错误号: ".$message->errstr(). PHP_EOL .
                         "kafka: ". $this->topic . PHP_EOL .
                         "msg: report failure 【Maybe kafka is die！】" . PHP_EOL .
                         'server name: ' . gethostname() . PHP_EOL .
                         'tips: please check the error logs ' . PHP_EOL .
                         'path: ' . $this->config['errorLogPath']
                     );
-                    throw new \Exception($message->errstr(), $message->err);
                     break;
             }
         } while (!$this->isStopped());
@@ -375,9 +395,9 @@ class KafkaConsumer
         $dateTime = date('Y-m-d H:i:s');
 
         $date = date('Ymd', time());
-        $path = $path.'.'.$date.'.consumer.kafka.log';
+        $path = $path.'.'.$this->topic.'.consumer.kafka.log'.$date;
 
-        error_log("[$dateTime] $message".PHP_EOL, 3, $path);
+        error_log("[$dateTime] $message".PHP_EOL.PHP_EOL, 3, $path);
     }
 
     public function stop()

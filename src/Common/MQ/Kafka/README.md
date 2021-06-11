@@ -2,17 +2,21 @@
 
 
 
+> 基础库做了高度封装，业务层需要写的代码较少，主要是配置
+
+
+
 ### 1 MQ门面介绍（Facade）
 
 提供快捷调用，无需关乎消息队列
 
-门面文件放在common/Facade/MQ.php
+门面文件放在基础库的common/MQ/Facade/MQ.php中
 
 
 
 ### 2 如何创建消费者：
 
-
+##### 2.1 demo：
 
 ```php
 <?php
@@ -62,7 +66,22 @@ MQ::consum('test', [new UseMessage(), 'main'], $config)->run();
 
 
 
+##### 2.2 广告上报(reporter项目)案例：
+
+reporter/mq/report_to.php
+
+```php
+$processor = MQ::consum($queue, [new ZeusReporter($logger), 'report'], $config[$target]);
+$processor->run();
+```
+
+这里开启了一个广告上报消费者
+
+
+
 ### 3 如何创建生产者：
+
+##### 3.1 demo：
 
 ```php
 <?php
@@ -113,4 +132,151 @@ $result = MQ::produce('test',['A message for test'], $config);
 ```
 
 
+
+##### 3.2 广告上报(ad_center项目)案例：
+
+ad_center/src/application/services/CollectService.php
+
+```php
+use Stary\Common\MQ\Facade\MQ;
+```
+
+```php
+try {
+    MQ::produce(self::TUBE_NAME, $putData, self::$mqConfig['adReport']);
+} catch (Exception $e) {
+    Logger::error('Report failed while MQ::produce, message:' . $e->getMessage());
+    return false;
+}
+```
+
+这里创建了一个广告生产者，注意代码MQ::produce(self::TUBE_NAME, $putData, self::$mqConfig['adReport']) 永远只会返回null，它不管你推送成功还是失败，只管推送，并立马返回null，不做同步等待。下面这里介绍如何确保可靠性
+
+
+
+### 4 生产者如何进行消息可靠性处理
+
+以广告上报（项目名称：ad_center）为例：
+
+ad_center/src/application/services/CollectService.php
+
+```php
+self::$mqConfig['adReport']['callback'] = function ($kafka, $message) {
+    //如果推送失败
+    if ($message->offset<1) {
+        Logger::error($message->payload, 'kafkaProduceFailMessages_');
+    } else {
+        //如果推送成功
+        //稳定后可清除这行代码
+        Logger::info(
+            "kafkaProduceSuccess:消息推送成功，保存位置为：".$message->offset,
+            'kafkaProducerSuccLog'
+        );
+    }
+};
+```
+
+这里配置了一个异步回调方法， rdkafka会将成功与否情况回调这个方法
+
+
+
+### 5 消费者如何进行消息可靠性处理
+
+
+
+##### 5.1 消费失败后，基础库会替你重试三次，以下是基础库重试源码查看：
+
+```php
+/**
+ * 消费者获取到消息后，处理消息失败后执行重试
+ * @param object $callback
+ * @param object $message
+ * @return boolean
+ * @throws \Rdkafka\Exception
+ */
+private function doCallBack($callback, $message)
+{
+
+    //默认执行失败
+    $isSuccess = false;
+    //记录失败重试次数
+    $reTryTimes = 0;
+
+    //重试(RETRY_TIMES_AFTER_FAIL)次， 直到成功
+    while ($isSuccess == false && $reTryTimes < self::RETRY_TIMES_AFTER_FAIL) {
+        try {
+            $isSuccess = call_user_func_array($callback, [json_decode($message->payload, true)]);
+        } catch (\Exception $e) {
+            $this->log("第".$reTryTimes."次失败".$e->getmessage(), $this->config['errorLogPath']);
+            $isSuccess = false;
+        }
+        $reTryTimes++;
+    }
+
+    return $isSuccess;
+}
+```
+
+
+
+5.2 如果重试三次都失败，会自动调用消费者实例（比如广告的消费者实例是reporter/mq/reporter/ZeusReporter.php中的ZeusReporter）中的onfailure方法，可以在onfailure方法中做相关失败处理。
+
+```php
+/**
+ * 一致性处理，当消费失败，基础库会重试3次，如果继续失败，基础库会调用这个方法，把处理权交给业务端。
+ * @param string $topic
+ * @param array  $config
+ * @return KafkaConsumer
+ * @throws \RdKafka\Exception
+ */
+public function onFailure(string $message)
+{
+    $this->logger->error("重新入队：adReportDataFail,消息内容：$message");
+
+    $config = C('BEANSTALKD_CONFIG');
+    
+    //推入到另外一个专门保存失败队列的kafka队列当中。
+    MQ::produce('adReportDataFail', $message, $config['adReport']['adReportDataFail']);
+}
+```
+
+
+
+3、这里的失败处理，新建一个存储消费失败的消息的队列， 在onfailure方法中，将失败消息推送到该队列当中，然后对该队列进行消费。由于这次是对失败消息的再次消费，所以为了确保百分百消费成功，需要在队列配置中添加'stopConsumWhileFail'=>true， 添加了这个配置的消费者，当碰到消费失败的消息时，不会提交offset，同时会停掉消费者，等待人工排查处理好后再去开启消费者。
+
+
+
+以下是广告上报项目的配置：
+
+reporter/mq/config/server_conf.php.test
+
+```php
+//adReport消费失败后，会被传入这个队列，这个队列是要确保百分百消费成功，否则停止消费者并人工排查处理好后再去开启消费者
+'adReportFail' => [
+    ...
+    ...
+    'stopConsumWhileFail'=>true//消费失败不提交offset并停止消费者
+    ...
+    ...
+],
+```
+
+
+
+以下是基础库源码查看：
+
+```php
+if ($this->config['stopConsumWhileFail'] == true) {
+    $this->stop();
+    $this->consumer->close();
+    DingTalkApi::sendRobotMessage(
+        "【必须处理】消息队列-kafka-消费失败-已关闭消费者：". PHP_EOL .
+        "kafka队列名称: ". $this->topic . PHP_EOL .
+        'server name: ' . gethostname() . PHP_EOL .
+        'tips: please check the error logs ' . PHP_EOL .
+        'path: ' . $this->config['errorLogPath']
+    );
+    return false;
+}
+```
 
