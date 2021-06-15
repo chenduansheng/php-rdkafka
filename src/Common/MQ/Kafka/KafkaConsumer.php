@@ -46,6 +46,7 @@ class KafkaConsumer
         'stopConsumWhileFail'=>false,                       //出现消费失败情况是否立马停止消费
         'maxConsumNum'=>0,                                  //最大消费条数（设置为0就是不限制）
         'expireTime'=>0,                                    //消费者生存时间（设置为0就是不限制）
+        'autoOffsetReset'=>'smallest'                       //消费者初始偏移位置
     ];
 
     /**
@@ -128,8 +129,6 @@ class KafkaConsumer
         // 初始偏移位置
         if (!empty($this->config['autoOffsetReset'])) {
             $conf->set('auto.offset.reset', $this->config['autoOffsetReset']);
-        }else{
-            $conf->set('auto.offset.reset', 'smallest');
         }
 
         $consumer = new \RdKafka\KafkaConsumer($conf);

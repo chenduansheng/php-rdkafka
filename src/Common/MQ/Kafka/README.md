@@ -2,7 +2,30 @@
 
 
 
-> 基础库做了高度封装，业务层需要写的代码较少，主要是配置
+> 基础库做了高度封装，业务层需要写的代码较少，主要是配置，消费和生产都是一行代码
+
+消费：
+
+```
+MQ::consum('test', [new UseMessage(), 'main'], $config)->run();
+```
+
+生产：
+
+```php
+MQ::produce('test',['A message for test'], $config);
+```
+
+
+
+上面代码的介绍：
+
+| 代码片段                   | 说明                                                     | 类型   |
+| -------------------------- | -------------------------------------------------------- | ------ |
+| 'test'                     | 队列名                                                   | string |
+| [new UseMessage(), 'main'] | 把消费到的消息传给实例new UseMessage()中的main方法去处理 | array  |
+| $config                    | 配置，可放到配置文件当中                                 | array  |
+|                            |                                                          |        |
 
 
 
@@ -14,7 +37,15 @@
 
 
 
-### 2 如何创建消费者：
+### 2 如何开启消费：
+
+开启消费就是通过一行代码：
+
+```php
+MQ::consum('test', [new UseMessage(), 'main'], $config)->run();
+```
+
+
 
 ##### 2.1 demo：
 
@@ -81,6 +112,14 @@ $processor->run();
 
 ### 3 如何创建生产者：
 
+创建生产者就是通过一行代码：
+
+```php
+MQ::produce('test',['A message for test'], $config);
+```
+
+
+
 ##### 3.1 demo：
 
 ```php
@@ -125,7 +164,7 @@ $config['callback'] = function ($kafka, $message) {
  * 参数一：string 主题名称（即队列名称）
  * 参数二：array 要推送的消息内容
  * 参数三：array 配置
- * $result: boolean
+ * $result: null
 **/
 $result = MQ::produce('test',['A message for test'], $config);
 
@@ -135,6 +174,8 @@ $result = MQ::produce('test',['A message for test'], $config);
 
 ##### 3.2 广告上报(ad_center项目)案例：
 
+> 异步生产消息
+
 ad_center/src/application/services/CollectService.php
 
 ```php
@@ -143,6 +184,7 @@ use Stary\Common\MQ\Facade\MQ;
 
 ```php
 try {
+    //异步生产消息
     MQ::produce(self::TUBE_NAME, $putData, self::$mqConfig['adReport']);
 } catch (Exception $e) {
     Logger::error('Report failed while MQ::produce, message:' . $e->getMessage());
@@ -278,5 +320,55 @@ if ($this->config['stopConsumWhileFail'] == true) {
     );
     return false;
 }
+```
+
+
+
+### 6 消费分组
+
+##### 6.1 kafka分组概念简单介绍
+
+> 比如现在有a、b两个分组，a分组下面有a1、a2两个消费者，b分组下面有b1、b2两个消费者
+>
+> 现在来了2条消息，
+>
+> a分组和b分组都会获得者2条消息， 但是a分组下面的2个消费者是各自获得1条消息，b分组同理。
+
+##### 6.2 我们这里分组，只需修改配置文件当中的groupId
+
+以广告上报（report项目）为例：
+
+report/mq/config/server_conf.php.test
+
+```php
+'adReport' => [
+    ...
+    ...
+    'groupId'=>'group_1',  //消费者分组id
+    ...
+    ...
+],
+```
+
+### 7 消费重平衡
+
+多见于当同一消费组内的消费者数量发生变化时，就发生重平衡
+
+因为同一消费组内的消费者，在多分区情况下， 他们会被分配不同的分区进行分工协作，
+
+消费重平衡会保存在日志中
+
+以广告上报（report项目）为例：
+
+report/mq/config/server_conf.php.test
+
+```php
+'adReport' => [
+    ...
+    ...
+    'rebalanceLogPath'=>$LOG_PATH.'/kafkaConsumRebalanceLog', //kafka重平衡日志
+    ...
+    ...
+],
 ```
 
