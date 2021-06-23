@@ -1,6 +1,7 @@
 <?php
 namespace Stary\Common\MQ\Facade;
 
+use Stary\Common\MQ\Kafka\NmredKafkaProducer;
 use Stary\Common\MQ\Kafka\KafkaProducer;
 use Stary\Common\MQ\Kafka\KafkaConsumer;
 use RdKafka\Producer;
@@ -15,7 +16,7 @@ class MQ
 
     private static $config = [
         /*设置默认走kafka*/
-        'type'=>'kafka'
+        'type'=>'nmred-kafka'
     ];
 
     /**
@@ -32,7 +33,11 @@ class MQ
         $config = array_merge(self::$config, $config);
 
         switch ($config['type']) {
-            /* self::$config 中设置了默认走kafka */
+            /* self::$config 中设置了默认走nmred-kafka */
+            case 'nmred-kafka':
+                return ( NmredKafkaProducer::instance($topic, $config) )->produce($message);
+                break;
+             /*rdkafka*/
             case 'kafka':
                 return ( KafkaProducer::instance($topic, $config) )->produce($message);
                 break;
@@ -57,6 +62,10 @@ class MQ
         $config = array_merge(self::$config, $config);
 
         switch ($config['type']) {
+            /* self::$config 中设置了默认走kafka */
+            case 'nmred-kafka':
+                return ( NmredKafkaProducer::instance($topic, $config) )->produce($message);
+                break;
             /* self::$config 中设置了默认走kafka */
             case 'kafka':
                 return ( KafkaProducer::instance($topic, $config) )->produce($message);

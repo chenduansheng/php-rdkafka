@@ -18,9 +18,10 @@ class KafkaProducer
     private $config = [
         'brokerList'=>'',                       //kafka地址和端口 - 【只有此项是必传】
         'clientId'=>'',                         //客户端分配id
-        'drCbLogPath'=>'/var/log/kafka_dr_cb',  //回调函数保存回调日志的日志文件地址
-        'errCbLogPath'=>'/var/log/kafka_err_cb',//回调函数保存错误日志的日志文件地址
+        //'drCbLogPath'=>'/var/log/kafka_dr_cb',  //回调函数保存回调日志的日志文件地址
+        //'errCbLogPath'=>'/var/log/kafka_err_cb',//回调函数保存错误日志的日志文件地址
         'defaultLogPath'=>'/var/log/default',   //默认日志路径
+        'flushToDisk'=>false,                   //是否将当前消息实时持久化到磁盘
         'ack'=>0                                //是否需要给回调函数返回offset
     ];
 
@@ -49,6 +50,12 @@ class KafkaProducer
     public $topic;
 
     /**
+     * kafka topic名称
+     * @var object
+     */
+    public $topicName;
+
+    /**
      * 单例方法，生成基于主题的单例生产者
      * @param string $topic
      * @param array $config
@@ -71,6 +78,7 @@ class KafkaProducer
      */
     public function __construct(string $topic, array $config)
     {
+        $this->topicName = $topic;
         $this->config = array_merge($this->config, $config);
 
         $this->producerConfig = new \RdKafka\Conf();
@@ -137,7 +145,10 @@ class KafkaProducer
         }
 
         // 开始推送消息
-        $this->topic->produce(RD_KAFKA_PARTITION_UA, 0, $message, rand(0, 1000));
+        $this->log("执行推送：", $this->config['defaultLogPath']);
+        $this->topic->produce(RD_KAFKA_PARTITION_UA, 0, $message);
+        $this->log($message, $this->config['defaultLogPath']);
+
         // 非阻塞调用
         $this->producer->poll(0);
 
@@ -149,8 +160,10 @@ class KafkaProducer
      */
     public function __destruct()
     {
-        // 实例退出3秒后，默认执行一次刷盘
-        $this->producer->flush(3000);
+        if ($this->config['flushToDisk'] == true) {
+            //手动持久化当前消息到磁盘
+            $this->producer->flush(1000);
+        }
     }
 
     /**
@@ -167,7 +180,8 @@ class KafkaProducer
         $dateTime = date('Y-m-d H:i:s');
 
         $date = date('Ymd', time());
-        $path = $path.'.'.$this->topic.'.producer.kafka.log'.$date;
+
+        $path = $path.'.'.$this->topicName.'.producer.kafka.log.'.$date;
 
         error_log("[$dateTime] $message".PHP_EOL, 3, $path);
     }

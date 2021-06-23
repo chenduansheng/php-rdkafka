@@ -181,7 +181,6 @@ class KafkaConsumer
             //如果设置了碰到错误不提交offset并立马停止消费者
             if ($this->config['stopConsumWhileFail'] == true) {
                 $this->stop();
-                $this->consumer->close();
                 DingTalkApi::sendRobotMessage(
                     "【必须处理】消息队列-kafka-消费失败-已关闭消费者：". PHP_EOL .
                     "kafka队列名称: ". $this->topic . PHP_EOL .
@@ -394,7 +393,7 @@ class KafkaConsumer
         $dateTime = date('Y-m-d H:i:s');
 
         $date = date('Ymd', time());
-        $path = $path.'.'.$this->topic.'.consumer.kafka.log'.$date;
+        $path = $path.'.'.$this->topic.'.consumer.kafka.log.'.$date;
 
         error_log("[$dateTime] $message".PHP_EOL.PHP_EOL, 3, $path);
     }
@@ -402,6 +401,7 @@ class KafkaConsumer
     public function stop()
     {
         $this->isStoped = true;
+        $this->consumer->close();
     }
 
     public function isStopped()
