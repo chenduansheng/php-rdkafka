@@ -5,27 +5,25 @@ use Exception;
 use Kafka\Producer;
 use Kafka\ProducerConfig;
 
-
 /**
  * @description kafka消息生产者类包, 使用前需安装rdkafka拓展
  * @class KafkaProducer
  */
-class NmredKafkaProducer
+class NmredKafkaSyncProducer
 {
     /**
      * 默认配置项，应用传值过来了就会用传过来的，其中brokerList为必传项
      * @var string
      */
     private $config = [
-        'brokerList'=>'',                       //kafka地址和端口 - 【只有此项是必传】
+        'brokerList'=>'',                         //kafka地址和端口 - 【只有此项是必传】
         //'clientId'=>'',                         //客户端分配id
         //'drCbLogPath'=>'/var/log/kafka_dr_cb',  //回调函数保存回调日志的日志文件地址
         //'errCbLogPath'=>'/var/log/kafka_err_cb',//回调函数保存错误日志的日志文件地址
-        'defaultLogPath'=>'/var/log/default',   //默认日志路径
-        'flushToDisk'=>false,                   //是否将当前消息实时持久化到磁盘
-        'ack'=>1,                                //是否需要给回调函数返回offset
+        'defaultLogPath'=>'/var/log/default',     //默认日志路径
+        'ack'=>0,                                 //是否需要给回调函数返回offset
         'BrokerVersion'=>'1.0.0',
-        'isAsync'=>false
+        'isAsync'=>true
     ];
 
     /**
@@ -132,35 +130,16 @@ class NmredKafkaProducer
         }
 
         $topicName = $this->topicName;
-        $producer = new \Kafka\Producer(function() use ($message,$topicName) {
-            return [
-                [
-                    'topic' => $topicName,
-                    'value' => $message,
-                ],
-            ];
-        });
+        $producer = new \Kafka\Producer();
 
-        // 所有推送的回调地址
-        if (isset($this->config['callback'])) {
-            $producer->success($this->config['callback']);
-        } elseif (isset($this->config['drCbLogPath'])) {
-            $producer->success(function($result) {
-                //回调日志
-                $this->log(json_encode($result, true), $this->config['drCbLogPath']);
-            });
-        }
+        $result = $producer->send(array(
+            array(
+                'topic' => $this->topicName,
+                'value' => $message
+            ),
+        ));
 
-        // 所有错误推送的回调日志地址，该日志可追踪错误的推送
-        if (isset($this->config['errCbLogPath'])) {
-            $producer->error(function($errorCode) {
-                $this->log($errorCode, $this->config['errCbLogPath']);
-            });
-        }
-
-        $producer->send(true);
-
-        return true;
+        return $result;
     }
 
     /**

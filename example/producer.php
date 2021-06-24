@@ -10,4 +10,4 @@ $config = [
     'ack'=>1
 ];
 
-( \Common\MQ\Kafka\KafkaProducer::instance('test', $config) )->send('A message for test');
+( \Stary\Common\MQ\Kafka\KafkaProducer::instance('test', $config) )->produce(['A message for test']);

@@ -2,6 +2,7 @@
 namespace Stary\Common\MQ\Facade;
 
 use Stary\Common\MQ\Kafka\NmredKafkaProducer;
+use Stary\Common\MQ\Kafka\NmredKafkaSyncProducer;
 use Stary\Common\MQ\Kafka\KafkaProducer;
 use Stary\Common\MQ\Kafka\KafkaConsumer;
 use RdKafka\Producer;
@@ -15,8 +16,8 @@ class MQ
 {
 
     private static $config = [
-        /*设置默认走kafka*/
-        'type'=>'nmred-kafka'
+        /*设置默认走nmred-sync-kafka*/
+        'type'=>'nmred-sync-kafka'
     ];
 
     /**
@@ -33,11 +34,16 @@ class MQ
         $config = array_merge(self::$config, $config);
 
         switch ($config['type']) {
-            /* self::$config 中设置了默认走nmred-kafka */
+            /* self::$config 中设置了默认走nmred-sync-kafka */
+            //nmred-sync-kafka (nmred/kafka的同步模式)
+            case 'nmred-sync-kafka':
+                return ( NmredKafkaSyncProducer::instance($topic, $config) )->produce($message);
+                break;
+            // (nmred/kafka的异步模式)
             case 'nmred-kafka':
                 return ( NmredKafkaProducer::instance($topic, $config) )->produce($message);
                 break;
-             /*rdkafka*/
+            /* 如果是rdkafka */
             case 'kafka':
                 return ( KafkaProducer::instance($topic, $config) )->produce($message);
                 break;
@@ -62,11 +68,16 @@ class MQ
         $config = array_merge(self::$config, $config);
 
         switch ($config['type']) {
-            /* self::$config 中设置了默认走kafka */
+            /* self::$config 中设置了默认走nmred-sync-kafka */
+            //nmred-sync-kafka (nmred/kafka的同步模式)
+            case 'nmred-sync-kafka':
+                return ( NmredKafkaSyncProducer::instance($topic, $config) )->produce($message);
+                break;
+            // (nmred/kafka的异步模式)
             case 'nmred-kafka':
                 return ( NmredKafkaProducer::instance($topic, $config) )->produce($message);
                 break;
-            /* self::$config 中设置了默认走kafka */
+            /* 如果是rdkafka */
             case 'kafka':
                 return ( KafkaProducer::instance($topic, $config) )->produce($message);
                 break;
