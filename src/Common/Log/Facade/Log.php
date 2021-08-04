@@ -64,26 +64,7 @@ class Log
      */
     public static function produce($topic, $message, $config)
     {
-
-        $config = array_merge(self::$config, $config);
-
-        switch ($config['type']) {
-            /* self::$config 中设置了默认走nmred-sync-kafka */
-            //nmred-sync-kafka (nmred/kafka的同步模式)
-            case 'nmred-sync-kafka':
-                return ( NmredKafkaSyncProducer::instance($topic, $config) )->produce($message);
-                break;
-            // (nmred/kafka的异步模式)
-            case 'nmred-kafka':
-                return ( NmredKafkaProducer::instance($topic, $config) )->produce($message);
-                break;
-            /* 如果是rdkafka */
-            case 'kafka':
-                return ( KafkaProducer::instance($topic, $config) )->produce($message);
-                break;
-            default:
-                break;
-        }
+        echo 99;exit;
 
         return false;
     }
