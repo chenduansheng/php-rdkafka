@@ -10,4 +10,4 @@ $config = [
     'ack'=>1
 ];
 
-( \Stary\Common\MQ\Kafka\KafkaProducer::instance('test', $config) )->produce(['A message for test']);
+( \StaryPHP\Common\MQ\Kafka\KafkaProducer::instance('test', $config) )->produce(['A message for test']);

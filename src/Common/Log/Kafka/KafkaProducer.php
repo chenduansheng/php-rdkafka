@@ -1,5 +1,5 @@
 <?php
-namespace Stary\Common\MQ\Kafka;
+namespace StaryPHP\Common\MQ\Kafka;
 
 use Exception;
 use RdKafka\Producer;

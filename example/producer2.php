@@ -11,4 +11,4 @@ $config = [
     'ack'=>1
 ];
 
-( \Stary\Common\MQ\Kafka\NmredKafkaProducer::instance('test2', $config) )->send('A message for test');
+( \StaryPHP\Common\MQ\Kafka\NmredKafkaProducer::instance('test2', $config) )->send('A message for test');

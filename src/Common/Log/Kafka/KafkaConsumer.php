@@ -1,9 +1,9 @@
 <?php
 
-namespace Stary\Common\MQ\Kafka;
+namespace StaryPHP\Common\MQ\Kafka;
 
 use RdKafka\KafkaConsumer as RkConsumer;
-use Stary\Common\MQ\Kafka\KafkaProducer;
+use StaryPHP\Common\MQ\Kafka\KafkaProducer;
 use RdKafka\Message;
 use RdKafka\Conf;
 use DingTalkApi;

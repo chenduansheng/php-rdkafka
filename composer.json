@@ -15,8 +15,9 @@
     },
     "autoload":{
         "psr-4":{
-            "Stary\\Common\\MQ\\Facade\\": "src/Common/MQ/Facade",
-            "Stary\\Common\\MQ\\Kafka\\": "src/Common/MQ/Kafka"
+            "StaryPHP\\Common\\MQ\\Facade\\": "src/Common/MQ/Facade",
+            "StaryPHP\\Common\\MQ\\Kafka\\": "src/Common/MQ/Kafka",
+            "StaryPHP\\Common\\Log\\Facade\\": "src/Common/Log/Facade"
         }
     }
 }

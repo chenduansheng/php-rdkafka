@@ -64,8 +64,8 @@ class UseMessage{
 
 
 require_once '../vendor/autoload.php';
-use Stary\Common\MQ\Kafka\KafkaConsumer;
-use Stary\Common\Facade\MQ;
+use StaryPHP\Common\MQ\Kafka\KafkaConsumer;
+use StaryPHP\Common\Facade\MQ;
 
 //这个是配置，一般可放入配置文件
 $config = [
@@ -126,7 +126,7 @@ MQ::produce('test',['A message for test'], $config);
 <?php
 
 require_once '../vendor/autoload.php';
-use Stary\Common\Facade\MQ;
+use StaryPHP\Common\Facade\MQ;
 
 
 
@@ -179,7 +179,7 @@ $result = MQ::produce('test',['A message for test'], $config);
 ad_center/src/application/services/CollectService.php
 
 ```php
-use Stary\Common\MQ\Facade\MQ;
+use StaryPHP\Common\MQ\Facade\MQ;
 ```
 
 ```php

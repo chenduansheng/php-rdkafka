@@ -1,10 +1,10 @@
 <?php
-namespace Stary\Common\MQ\Facade;
+namespace StaryPHP\Common\MQ\Facade;
 
-use Stary\Common\MQ\Kafka\NmredKafkaProducer;
-use Stary\Common\MQ\Kafka\NmredKafkaSyncProducer;
-use Stary\Common\MQ\Kafka\KafkaProducer;
-use Stary\Common\MQ\Kafka\KafkaConsumer;
+use StaryPHP\Common\MQ\Kafka\NmredKafkaProducer;
+use StaryPHP\Common\MQ\Kafka\NmredKafkaSyncProducer;
+use StaryPHP\Common\MQ\Kafka\KafkaProducer;
+use StaryPHP\Common\MQ\Kafka\KafkaConsumer;
 use RdKafka\Producer;
 use RdKafka\ProducerTopic;
 
